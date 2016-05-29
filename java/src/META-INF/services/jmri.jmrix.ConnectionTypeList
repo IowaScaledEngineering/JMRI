@@ -18,6 +18,7 @@ jmri.jmrix.tmcc.SerialConnectionTypeList
 jmri.jmrix.maple.SerialConnectionTypeList
 jmri.jmrix.merg.MergConnectionTypeList
 jmri.jmrix.marklin.MarklinConnectionTypeList
+jmri.jmrix.mrbus.SerialConnectionTypeList
 jmri.jmrix.mrc.MrcConnectionTypeList
 jmri.jmrix.rps.RpsConnectionTypeList
 jmri.jmrix.nce.NceConnectionTypeList

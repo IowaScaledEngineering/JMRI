@@ -208,11 +208,13 @@ public class ConnectionConfigManager extends AbstractPreferencesManager implemen
 
         private final HashMap<String, ConnectionTypeList> connectionTypeLists = new HashMap<>();
 
+
         public ConnectionTypeManager() {
             for (ConnectionTypeList ctl : ServiceLoader.load(ConnectionTypeList.class)) {
                 for (String manufacturer : ctl.getManufacturers()) {
                     if (!connectionTypeLists.containsKey(manufacturer)) {
                         connectionTypeLists.put(manufacturer, ctl);
+                        log.info("Adding connection type " + manufacturer + " " + ctl);
                     } else {
                         log.error("Refusing to add ConnectionListType \"{}\" for manufacturer \"{}\"; existing class is \"{}\"",
                                 ctl.getClass().getName(),

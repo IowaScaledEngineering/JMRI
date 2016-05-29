@@ -203,6 +203,8 @@ public class JmrixConfigPane extends JPanel implements PreferencesPanel {
                 manuBox.addItem(manuName);
                 manuBox.setSelectedItem(manuName);
             } else {
+                log.info("Got Manufacturer" + manuName);
+                
                 manuBox.addItem(manuName);
             }
         }

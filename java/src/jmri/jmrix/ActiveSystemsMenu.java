@@ -79,6 +79,10 @@ public class ActiveSystemsMenu extends JMenu {
             m.add(getMenu("jmri.jmrix.oaktree.OakTreeMenu"));
         }
 
+        if (jmri.jmrix.mrbus.ActiveFlag.isActive()) {
+            m.add(getMenu("jmri.jmrix.mrbus.MRBusMenu"));
+        }
+
         if (jmri.jmrix.pricom.ActiveFlag.isActive()) {
             m.add(getMenu("jmri.jmrix.pricom.PricomMenu"));
         }
@@ -149,6 +153,9 @@ public class ActiveSystemsMenu extends JMenu {
         }
         if (jmri.jmrix.oaktree.ActiveFlag.isActive()) {
             m.add(getMenu("jmri.jmrix.oaktree.OakTreeMenu"));
+        }
+        if (jmri.jmrix.mrbus.ActiveFlag.isActive()) {
+            m.add(getMenu("jmri.jmrix.mrbus.MRBusMenu"));
         }
         if (jmri.jmrix.pricom.ActiveFlag.isActive()) {
             m.add(getMenu("jmri.jmrix.pricom.PricomMenu"));
