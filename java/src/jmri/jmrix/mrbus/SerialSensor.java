@@ -15,6 +15,11 @@ public class SerialSensor extends AbstractSensor {
      */
     private static final long serialVersionUID = 5465958868822894698L;
 
+    private int mrbusAddress;
+    private int mrbusPktType;
+    private int mrbusPktByte;
+    private int mrbusPktBit;
+
     public SerialSensor(String systemName) {
         super(systemName);
         _knownState = UNKNOWN;
@@ -23,6 +28,35 @@ public class SerialSensor extends AbstractSensor {
     public SerialSensor(String systemName, String userName) {
         super(systemName, userName);
         _knownState = UNKNOWN;
+    }
+
+    public void setMRBusAttributes(int addr, int type, int byteNum, int bitNum)
+    {
+    	mrbusAddress = addr;
+    	mrbusPktType = type;
+    	mrbusPktByte = byteNum;
+    	mrbusPktBit = bitNum;
+    
+    }
+
+    public int getMRBusAddress()
+    {
+		return mrbusAddress;
+    }
+    
+    public int getMRBusPktType()
+    {
+    	return mrbusPktType;
+    }
+
+	 public int getMRBusPktByte()
+    {
+    	return mrbusPktByte;
+    }
+
+	 public int getMRBusPktBit()
+    {
+    	return mrbusPktBit;
     }
 
     public void dispose() {

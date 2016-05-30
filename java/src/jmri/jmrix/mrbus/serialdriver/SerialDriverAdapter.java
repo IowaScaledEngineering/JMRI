@@ -32,6 +32,7 @@ public class SerialDriverAdapter extends SerialPortController implements jmri.jm
 
     public String openPort(String portName, String appName) {
         try {
+
             // get and open the primary port
             CommPortIdentifier portID = CommPortIdentifier.getPortIdentifier(portName);
             try {
@@ -39,6 +40,8 @@ public class SerialDriverAdapter extends SerialPortController implements jmri.jm
             } catch (PortInUseException p) {
                 return handlePortBusy(p, portName, log);
             }
+
+
             // try to set it for serial
             try {
                 setSerialPort();
@@ -49,7 +52,7 @@ public class SerialDriverAdapter extends SerialPortController implements jmri.jm
 
             // set framing (end) character
             try {
-                activeSerialPort.enableReceiveFraming(0x03);
+                activeSerialPort.enableReceiveFraming(0x0A);
                 log.debug("Serial framing was observed as: " + activeSerialPort.isReceiveFramingEnabled()
                         + " " + activeSerialPort.getReceiveFramingByte());
             } catch (Exception ef) {
@@ -190,6 +193,7 @@ public class SerialDriverAdapter extends SerialPortController implements jmri.jm
         SerialSensorManager s;
         jmri.InstanceManager.setSensorManager(s = jmri.jmrix.mrbus.SerialSensorManager.instance());
         SerialTrafficController.instance().setSensorManager(s);
+        log.info("Connected SerialSensorManager\n");
         jmri.jmrix.mrbus.ActiveFlag.setActive();
     }
 

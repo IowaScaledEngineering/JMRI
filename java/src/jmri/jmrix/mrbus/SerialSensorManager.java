@@ -1,7 +1,14 @@
 // SerialSensorManager.java
 package jmri.jmrix.mrbus;
 
+
+import java.util.List;
+import java.util.ArrayList;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import jmri.Sensor;
+import jmri.JmriException;
+import jmri.jmrix.mrbus.MRBusPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,19 +38,54 @@ public class SerialSensorManager extends jmri.managers.AbstractSensorManager
      */
     static final int SENSORSPERNODE = 1000;
 
+    SerialTrafficController tc = null;
+
+    private ArrayList<SerialSensor> sensorList = null;
+
     public SerialSensorManager() {
         super();
+        sensorList = new ArrayList<SerialSensor>();
     }
 
     /**
      * Return the Oak Tree system letter
      */
     public String getSystemPrefix() {
-        return "M";
+        return "Y";
     }
 
     // to free resources when no longer used
     public void dispose() {
+    }
+
+    public String createSystemName(String curAddress, String prefix) throws JmriException {
+        String tmpSName = "";
+        
+        // Names should be in the form of NN:TT:BB/X  where:
+        // NN = node number (hex)
+        // TT = Packet type (hex)
+        // BB = Byte number (byte 6 is 0)
+        // X = Bit number
+        
+        
+        Pattern pattern = Pattern.compile("([0-9A-Z]+):([0-9A-Z]+):([0-9]+)/([0-8])");
+		  Matcher matcher = pattern.matcher(curAddress.toUpperCase());
+		  if (!matcher.matches()) {
+           log.error("Unable to convert " + curAddress + " Hardware Address to a number");
+           throw new JmriException("Unable to convert " + curAddress + " to a valid Hardware Address");
+
+        }
+        
+        int nodeAddr = Integer.parseInt(matcher.group(1), 16);
+        int nodePktType = Integer.parseInt(matcher.group(2), 16);
+        int byteIdx = Integer.parseInt(matcher.group(3), 10);
+        int bitIdx = Integer.parseInt(matcher.group(4), 10);
+
+        tmpSName = prefix + typeLetter() + String.format("%02X%02X%02d%d", nodeAddr, nodePktType, byteIdx, bitIdx);
+
+
+			log.info("mrbus.createSystemName turned " + curAddress + " into " + tmpSName);
+        return tmpSName;
     }
 
     /**
@@ -52,6 +94,10 @@ public class SerialSensorManager extends jmri.managers.AbstractSensorManager
      */
     public Sensor createNewSensor(String systemName, String userName) {
         Sensor s;
+        SerialSensor ss;
+
+			log.info("Creating sensor with sysname="+systemName+" and username="+userName);
+
         // validate the system name, and normalize it
         String sName = SerialAddress.normalizeSystemName(systemName);
         if (sName.equals("")) {
@@ -59,42 +105,36 @@ public class SerialSensorManager extends jmri.managers.AbstractSensorManager
             log.error("Invalid Sensor system name - " + systemName);
             return null;
         }
+
         // does this Sensor already exist
         s = getBySystemName(sName);
         if (s != null) {
             log.error("Sensor with this name already exists - " + systemName);
             return null;
         }
-        // check under alternate name
-        String altName = SerialAddress.convertSystemNameToAlternate(sName);
-        s = getBySystemName(altName);
-        if (s != null) {
-            log.error("Sensor with name '" + systemName + "' already exists as '" + altName + "'");
-            return null;
-        }
-        // check bit number
-        int bit = SerialAddress.getBitFromSystemName(sName);
-        if ((bit <= 0) || (bit >= SENSORSPERNODE)) {
-            log.error("Sensor bit number, " + Integer.toString(bit)
-                    + ", is outside the supported range, 1-" + Integer.toString(SENSORSPERNODE - 1));
-            return null;
-        }
+
         // Sensor system name is valid and Sensor doesn't exist, make a new one
         if (userName == null) {
-            s = new SerialSensor(sName);
+            s = ss = new SerialSensor(sName);
         } else {
-            s = new SerialSensor(sName, userName);
-        }
+            s = ss = new SerialSensor(sName, userName);
+        }  
 
-        // ensure that a corresponding Serial Node exists
-        SerialNode node = SerialAddress.getNodeFromSystemName(sName);
-        if (node == null) {
-            log.warn("Sensor " + sName + " refers to an undefined Serial Node.");
-            return s;
-        }
-        // register this sensor with the Serial Node
-        node.registerSensor(s, bit - 1);
-        return s;
+        Pattern pattern = Pattern.compile("([0-9A-Z][0-9A-Z])([0-9A-Z][0-9A-Z])([0-9][0-9])([0-8])");
+		  Matcher matcher = pattern.matcher(sName.toUpperCase().substring(2));
+		  if (!matcher.matches()) {
+           log.error("Unable to convert " + sName + " Hardware Address to a number");
+       } else {
+		     int nodeAddr = Integer.parseInt(matcher.group(1), 16);
+		     int nodePktType = Integer.parseInt(matcher.group(2), 16);
+		     int byteIdx = Integer.parseInt(matcher.group(3), 10);
+		     int bitIdx = Integer.parseInt(matcher.group(4), 10);  
+  		     ss.setMRBusAttributes(nodeAddr, nodePktType, byteIdx, bitIdx);
+     		sensorList.add(ss);
+
+		}  
+        
+       return s;
     }
 
     /**
@@ -109,10 +149,47 @@ public class SerialSensorManager extends jmri.managers.AbstractSensorManager
      */
     public void reply(SerialReply r) {
         // determine which node
-        SerialNode node = (SerialNode) SerialTrafficController.instance().getNodeFromAddress(r.getAddr());
-        if (node != null) {
-            node.markChanges(r);
-        }
+//        log.info("Received SerialReply [" + r.toString() + "]");
+        MRBusPacket p = new MRBusPacket(r);
+        if (null == p)
+        	return;
+        
+//        log.info("Searching sensors...");
+		  for(int sn=0; sn < sensorList.size(); sn++)
+		  {
+		  		SerialSensor s = sensorList.get(sn);
+		  		
+//		  		log.info("Checking sensor " + sn + " - mrbus addr=" + sensorList.get(sn).getMRBusAddress() + " length=" + p.length());
+//				log.info("Sensor is srcAddr="+s.getMRBusAddress()+" pktType="+s.getMRBusPktType()+ " pktByte="+s.getMRBusPktByte() + " pktBit="+s.getMRBusPktBit());		  		
+//				log.info("Packet is srcAddr="+p.getSrcAddr()+" pktType="+p.getPktType()+ " pktLen="+p.length());		  		
+		  		
+		  		if (s.getMRBusAddress() == p.getSrcAddr() && s.getMRBusPktType() == p.getPktType() && (s.getMRBusPktByte() + 6) <= p.length())
+		  		{
+		  			log.info("Found matching sensor\n");
+		  			log.info(r.toString());
+		  			
+		  			byte fromPkt = p.getByte(s.getMRBusPktByte() + 6);
+		  			byte mask = (byte)(0xFF & (1<<s.getMRBusPktBit()));
+		  			boolean value = (0 != (fromPkt & mask));
+		  			log.info("fromPkt is " + fromPkt + " mask is "+ mask);
+					try {
+						if (value)
+							s.setKnownState(SerialSensor.ACTIVE);
+						else
+							s.setKnownState(SerialSensor.INACTIVE);
+
+					} catch (JmriException e) { }
+		  		}
+		  		
+				
+		  }
+        
+        
+        
+//        SerialNode node = (SerialNode) SerialTrafficController.instance().getNodeFromAddress(r.getAddr());
+ //       if (node != null) {
+  //          node.markChanges(r);
+  //      }
     }
 
     /**
@@ -130,7 +207,7 @@ public class SerialSensorManager extends jmri.managers.AbstractSensorManager
                 log.error("System name null during register Sensor");
             } else {
                 log.debug("system name is " + sName);
-                if ((sName.charAt(0) == 'M') && (sName.charAt(1) == 'S')) {
+                if ((sName.charAt(0) == 'Y') && (sName.charAt(1) == 'S')) {
                     // This is a Sensor
                     tNode = SerialAddress.getNodeFromSystemName(sName);
                     if (tNode == node) {

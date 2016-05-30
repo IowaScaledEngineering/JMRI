@@ -1,5 +1,7 @@
 // SerialAddress.java
 package jmri.jmrix.mrbus;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,78 +131,15 @@ public class SerialAddress {
      */
     public static boolean validSystemNameFormat(String systemName, char type) {
         // validate the system Name leader characters
-        if ((systemName.charAt(0) != 'V') || (systemName.charAt(1) != type)) {
+        if ((systemName.charAt(0) != 'Y') || (systemName.charAt(1) != type)) {
             // here if an illegal format 
             log.error("illegal character in header field system name: "
                     + systemName);
             return (false);
         }
-        // check for the presence of a 'B' to differentiate the two address formats
-        String s = "";
-        int k = 0;
-        boolean noB = true;
-        for (int i = 2; (i < systemName.length()) && noB; i++) {
-            if (systemName.charAt(i) == 'B') {
-                s = systemName.substring(2, i);
-                k = i + 1;
-                noB = false;
-            }
-        }
-        if (noB) {
-            // This is a VLnnnxxx address
-            int num;
-            try {
-                num = Integer.valueOf(systemName.substring(2)).intValue();
-            } catch (Exception e) {
-                log.error("illegal character in number field system name: "
-                        + systemName);
-                return (false);
-            }
-            if ((num < 1) || (num >= 128000)) {
-                log.error("number field out of range in system name: "
-                        + systemName);
-                return (false);
-            }
-            if ((num - ((num / 1000) * 1000)) == 0) {
-                log.error("bit number not in range 1 - 999 in system name: "
-                        + systemName);
-                return (false);
-            }
-        } else {
-            // This is a VLnnnBxxxx address - validate the node address field
-            if (s.length() == 0) {
-                log.error("no node address before 'B' in system name: "
-                        + systemName);
-                return (false);
-            }
-            int num;
-            try {
-                num = Integer.valueOf(s).intValue();
-            } catch (Exception e) {
-                log.error("illegal character in node address field of system name: "
-                        + systemName);
-                return (false);
-            }
-            if ((num < 0) || (num >= 128)) {
-                log.error("node address field out of range in system name: "
-                        + systemName);
-                return (false);
-            }
-            // validate the bit number field
-            try {
-                num = Integer.parseInt(systemName.substring(k, systemName.length()));
-            } catch (Exception e) {
-                log.error("illegal character in bit number field of system name: "
-                        + systemName);
-                return (false);
-            }
-            if ((num < 1) || (num > 32)) {
-                log.error("bit number field out of range in system name: "
-                        + systemName);
-                return (false);
-            }
-        }
-
+    
+    		// Fixme - probably needs to validate    
+    
         return true;
     }
 
@@ -307,6 +246,31 @@ public class SerialAddress {
         String s = "";
         int k = 0;
         boolean noB = true;
+
+			nName = systemName;
+
+         Pattern pattern = null; 
+			if (systemName.contains(":"))
+			{
+	        pattern = Pattern.compile("([0-9A-Z]+):([0-9A-Z]+):([0-9]+)/([0-8])");
+	      } else {
+	        pattern = Pattern.compile("([0-9A-Z][0-9A-Z])([0-9A-Z][0-9A-Z])([0-9][0-9])([0-8])");
+	      }
+		  Matcher matcher = pattern.matcher(systemName.toUpperCase().substring(2));
+		  if (!matcher.matches()) {
+           log.error("Unable to convert " + systemName + " Hardware Address to a number");
+//           throw new JmriException("Unable to convert " + curAddress + " to a valid Hardware Address");
+
+        }
+        
+        int nodeAddr = Integer.parseInt(matcher.group(1), 16);
+        int nodePktType = Integer.parseInt(matcher.group(2), 16);
+        int byteIdx = Integer.parseInt(matcher.group(3), 10);
+        int bitIdx = Integer.parseInt(matcher.group(4), 10);
+
+        nName = systemName.substring(0,2) + String.format("%02X%02X%02d%d", nodeAddr, nodePktType, byteIdx, bitIdx);
+
+/*
         for (int i = 2; (i < systemName.length()) && noB; i++) {
             if (systemName.charAt(i) == 'B') {
                 s = systemName.substring(2, i);
@@ -326,7 +290,7 @@ public class SerialAddress {
             int bitNum = Integer.parseInt(systemName.substring(k, systemName.length()));
             nName = systemName.substring(0, 2) + Integer.toString(nAddress) + "B"
                     + Integer.toString(bitNum);
-        }
+        }*/
         return nName;
     }
 

@@ -1,6 +1,7 @@
 package jmri.jmrix.mrbus;
 
 import java.util.ResourceBundle;
+import jmri.InstanceManager;
 import jmri.jmrix.SystemConnectionMemo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,8 +13,9 @@ import org.slf4j.LoggerFactory;
 public class MRBusSystemConnectionMemo extends SystemConnectionMemo {
 
     public MRBusSystemConnectionMemo() {
-         super("M", "MRBus");
-			log.info("MRBus system memo created");
+        super("Y", "MRBus");
+        log.info("MRBus system memo created");
+        InstanceManager.store(this, SystemConnectionMemo.class);
 
     }
 

@@ -30,12 +30,12 @@ public class SerialTrafficController extends AbstractMRNodeTrafficController imp
     public SerialTrafficController() {
         super();
 
-        // set node range
-        init(0, 255);
+        init(1, 255);
 
-        // entirely poll driven, so reduce interval
-        mWaitBeforePoll = 25;  // default = 25
-
+        // not polled at all, so allow unexpected messages, and
+        // use poll delay just to spread out startup
+        setAllowUnexpectedReply(true);
+        mWaitBeforePoll = 1000;  // can take a long time to send
     }
 
     // The methods to implement the SerialInterface
@@ -81,7 +81,7 @@ public class SerialTrafficController extends AbstractMRNodeTrafficController imp
             for (int i = 0; i < getNumNodes(); i++) {
                 if (getNode(i) == node) {
                     // found node - set up for initialization
-                    setMustInit(i, true);
+//                    setMustInit(i, true);
                     return;
                 }
             }
@@ -89,7 +89,7 @@ public class SerialTrafficController extends AbstractMRNodeTrafficController imp
     }
 
     protected AbstractMRMessage enterProgMode() {
-        log.warn("enterProgMode doesnt make sense for SECSI serial");
+        log.warn("enterProgMode doesnt make sense for MRBus serial");
         return null;
     }
 
@@ -114,35 +114,16 @@ public class SerialTrafficController extends AbstractMRNodeTrafficController imp
     SerialSensorManager mSensorManager = null;
 
     public void setSensorManager(SerialSensorManager m) {
+			log.info("Setting sensor manager in STC");
         mSensorManager = m;
+        this.addSerialListener(m);
     }
 
     /**
      * Handles initialization, output and polling from within the running thread
      */
     protected synchronized AbstractMRMessage pollMessage() {
-
-		
-        if (getNode(curSerialNodeIndex).mustSend()) {
-            log.debug("request write command to send");
-            AbstractMRMessage m = getNode(curSerialNodeIndex).createOutPacket();
-            getNode(curSerialNodeIndex).resetMustSend();
-            m.setTimeout(500);
-            return m;
-        }
-        // poll for Sensor input
-        if (getNode(curSerialNodeIndex).getSensorsActive()) {
-            // Some sensors are active for this node, issue poll
-            SerialMessage m = SerialMessage.getPoll(
-                    getNode(curSerialNodeIndex).getNodeAddress());
-            if (curSerialNodeIndex >= getNumNodes()) {
-                curSerialNodeIndex = 0;
-            }
-            return m;
-        } else {
-            // no Sensors (inputs) are active for this node
-            return null;
-        }
+    	return null;
     }
 
     synchronized protected void handleTimeout(AbstractMRMessage m, AbstractMRListener l) {
@@ -202,30 +183,42 @@ public class SerialTrafficController extends AbstractMRNodeTrafficController imp
     }
 
     protected boolean endOfMessage(AbstractMRReply msg) {
-        // our version of loadChars doesn't invoke this, so it shouldn't be called
-        log.error("Not using endOfMessage, should not be called");
-        return false;
+		return(msg.getElement(msg.getNumDataElements()-1) == 0x0A);
     }
 
     protected int currentAddr = -1; // at startup, can't match
     protected int incomingLength = 0;
+    
+    protected void loadChars(AbstractMRReply msg, DataInputStream istream)
+            throws java.io.IOException 
+    {
+        int i;
+        for (i = 0; i < msg.maxSize(); i++) {
+            byte char1 = readByteProtected(istream);
 
-    protected void loadChars(AbstractMRReply msg, DataInputStream istream) throws java.io.IOException {
-        // get 1st byte, see if ending too soon
-        byte char1 = readByteProtected(istream);
-        msg.setElement(0, char1 & 0xFF);
-        if ((char1 & 0xFF) != currentAddr) {
-            // mismatch, end early
-            return;
+            //if (log.isDebugEnabled()) log.debug("char: "+(char1&0xFF)+" i: "+i);
+            // if there was a timeout, flush any char received and start over
+            if (flushReceiveChars) {
+                log.warn("timeout flushes receive buffer: {}", msg.toString());
+                msg.flush();
+                i = 0;  // restart
+                flushReceiveChars = false;
+            }
+
+				if (0x0D == char1)
+				{
+					i--;
+				} else if (canReceive()) {
+                msg.setElement(i, char1);
+                if (endOfMessage(msg)) {
+                    break;
+                }
+            } else {
+                i--; // flush char
+                log.error("unsolicited character received: {}", Integer.toHexString(char1));
+            }
         }
-        if (incomingLength <= 1) {
-            return;
-        }
-        for (int i = 1; i < incomingLength; i++) {  // reading next four bytes
-            char1 = readByteProtected(istream);
-            msg.setElement(i, char1 & 0xFF);
-        }
-    }
+    }    
 
     protected void waitForStartOfReply(DataInputStream istream) throws java.io.IOException {
         // does nothing

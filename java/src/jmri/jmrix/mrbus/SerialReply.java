@@ -29,14 +29,35 @@ public class SerialReply extends jmri.jmrix.AbstractMRReply {
         setBinary(true);
     }
 
+
+	public String toString()
+	{
+		StringBuilder s = new StringBuilder("");
+		for(int i=0; i<getNumDataElements(); i++)
+		{
+			int val = getElement(i);
+			if (0x0D == val || 0x0A == val)
+				continue;
+			s.append((char)val);
+		}
+		return new String(s);	
+	}
+
     /**
      * Is reply to poll message
      */
-    public int getAddr() {
-        log.error("getAddr should not be called");
-        new Exception().printStackTrace();
-        return getElement(0);
+    public boolean isPacket() {
+        return ((int)'P' == getElement(0));
     }
+
+    public boolean isError() {
+        return ((int)'E' == getElement(0));
+    }
+
+    public boolean isInfo() {
+        return ((int)'I' == getElement(0));
+    }
+
 
     protected int skipPrefix(int index) {
         // doesn't have to do anything

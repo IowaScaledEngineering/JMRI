@@ -21,7 +21,7 @@ public class SerialTurnoutManager extends AbstractTurnoutManager {
     }
 
     public String getSystemPrefix() {
-        return "M";
+        return "Y";
     }
 
     public Turnout createNewTurnout(String systemName, String userName) {
